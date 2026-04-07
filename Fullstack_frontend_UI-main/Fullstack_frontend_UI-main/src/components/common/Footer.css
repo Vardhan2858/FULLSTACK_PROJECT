@@ -1,0 +1,124 @@
+.footer {
+  background: linear-gradient(135deg, #2a3542 0%, #1e3a1e 50%, #2a3542 100%);
+  color: #d4d4d4;
+  padding: 3rem 0 0;
+  margin-top: 4rem;
+  position: relative;
+  border-top: 3px solid #d4af37;
+}
+
+.footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 30% 30%, rgba(212, 175, 55, 0.1) 0%, transparent 50%),
+              radial-gradient(circle at 70% 70%, rgba(39, 174, 96, 0.1) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.footer-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+}
+
+.footer-section {
+  padding: 0 1rem;
+}
+
+.footer-section h3 {
+  background: linear-gradient(135deg, #d4af37 0%, #f4c430 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.footer-section p {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.footer-section ul {
+  list-style: none;
+  padding: 0;
+}
+
+.footer-section ul li {
+  margin-bottom: 0.5rem;
+}
+
+.footer-section a {
+  color: #d4d4d4;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.footer-section a:hover {
+  color: #d4af37;
+}
+
+.social-links {
+  display: flex;
+  gap: 1rem;
+}
+
+.social-links a {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #3d4f5e 0%, #2a3542 100%);
+  border: 1px solid #d4af37;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.social-links a:hover {
+  background: linear-gradient(135deg, #d4af37 0%, #f4c430 100%);
+  color: #2a3542;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4);
+}
+
+.footer-bottom {
+  background: #2a3542;
+  padding: 1.5rem;
+  text-align: center;
+  font-size: 0.9rem;
+  border-top: 1px solid #d4af37;
+}
+
+.footer-bottom p {
+  margin: 0;
+  color: #d4d4d4;
+}
+
+.footer-bottom a {
+  color: #d4af37;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.footer-bottom a:hover {
+  text-decoration: underline;
+  color: #f4c430;
+}
+
+@media (max-width: 768px) {
+  .footer-container {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .footer-section {
+    padding: 0;
+  }
+}
