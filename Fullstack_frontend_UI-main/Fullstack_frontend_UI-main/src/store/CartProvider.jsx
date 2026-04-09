@@ -20,16 +20,7 @@ export function CartProvider({ children }) {
     };
   }, []);
 
-  // Load cart from API when user logs in
-  useEffect(() => {
-    if (user && user.id) {
-      loadCartFromAPI();
-    } else {
-      setCart([]);
-    }
-  }, [user]);
-
-  const loadCartFromAPI = async () => {
+  const loadCartFromAPI = useCallback(async () => {
     if (!user || !user.id) return;
     try {
       const cartItems = await cartAPI.getCartByUser(user.id);
@@ -39,7 +30,16 @@ export function CartProvider({ children }) {
       console.error('Error loading cart:', error);
       setCart([]);
     }
-  };
+  }, [user, normalizeCartItem]);
+
+  // Load cart from API when user logs in
+  useEffect(() => {
+    if (user && user.id) {
+      loadCartFromAPI();
+    } else {
+      setCart([]);
+    }
+  }, [user, loadCartFromAPI]);
 
   const addToCart = useCallback(async (product, quantity = 1) => {
     if (!user || !user.id) {
@@ -48,7 +48,6 @@ export function CartProvider({ children }) {
     }
     try {
       await cartAPI.addToCart(user.id, product.id, quantity);
-      // Reload cart after adding
       await loadCartFromAPI();
     } catch (error) {
       console.error('Error adding to cart:', error);
@@ -69,23 +68,60 @@ export function CartProvider({ children }) {
         }];
       });
     }
-  }, [user]);
+  }, [user, loadCartFromAPI]);
 
-  const removeFromCart = useCallback((productId) => {
-    setCart(prevCart => prevCart.filter(item => item.id !== productId));
-  }, []);
+  const removeFromCart = useCallback(async (cartItemOrProductId) => {
+    const cartItem = typeof cartItemOrProductId === 'object'
+      ? cartItemOrProductId
+      : cart.find((item) => item.id === cartItemOrProductId || item.productId === cartItemOrProductId);
 
-  const updateQuantity = useCallback((productId, quantity) => {
+    if (user?.id && cartItem?.cartId) {
+      try {
+        await cartAPI.deleteCartItem(cartItem.cartId);
+        await loadCartFromAPI();
+        return;
+      } catch (error) {
+        console.error('Error removing cart item from API:', error);
+      }
+    }
+
+    const productId = typeof cartItemOrProductId === 'object'
+      ? (cartItemOrProductId.id ?? cartItemOrProductId.productId)
+      : cartItemOrProductId;
+
+    setCart(prevCart => prevCart.filter(item => item.id !== productId && item.productId !== productId));
+  }, [user, cart, loadCartFromAPI]);
+
+  const updateQuantity = useCallback(async (cartItemOrProductId, quantity) => {
     if (quantity <= 0) {
-      removeFromCart(productId);
+      await removeFromCart(cartItemOrProductId);
       return;
     }
+
+    const cartItem = typeof cartItemOrProductId === 'object'
+      ? cartItemOrProductId
+      : cart.find((item) => item.id === cartItemOrProductId || item.productId === cartItemOrProductId);
+
+    if (user?.id && cartItem?.cartId) {
+      try {
+        await cartAPI.updateCartItemQuantity(cartItem.cartId, quantity);
+        await loadCartFromAPI();
+        return;
+      } catch (error) {
+        console.error('Error updating cart quantity in API:', error);
+      }
+    }
+
+    const productId = typeof cartItemOrProductId === 'object'
+      ? (cartItemOrProductId.id ?? cartItemOrProductId.productId)
+      : cartItemOrProductId;
+
     setCart(prevCart =>
       prevCart.map(item =>
-        item.id === productId ? { ...item, quantity } : item
+        item.id === productId || item.productId === productId ? { ...item, quantity } : item
       )
     );
-  }, [removeFromCart]);
+  }, [user, cart, loadCartFromAPI, removeFromCart]);
 
   const clearCart = useCallback(async () => {
     if (user && user.id) {

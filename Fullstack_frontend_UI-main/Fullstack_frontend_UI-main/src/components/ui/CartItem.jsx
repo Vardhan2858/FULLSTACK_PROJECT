@@ -8,12 +8,12 @@ export default function CartItem({ item }) {
   const quantity = Number(item.quantity) || 0;
 
   const handleQuantityChange = (e) => {
-    const newQuantity = parseInt(e.target.value);
-    updateQuantity(item.id, newQuantity);
+    const newQuantity = parseInt(e.target.value, 10);
+    updateQuantity(item, newQuantity);
   };
 
   const handleRemove = () => {
-    removeFromCart(item.id);
+    removeFromCart(item);
   };
 
   return (

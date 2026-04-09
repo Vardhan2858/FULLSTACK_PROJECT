@@ -60,6 +60,7 @@ const enrichProduct = (product) => {
 
 const enrichProducts = (products) => (products || []).map(enrichProduct);
 const LOCAL_ORDERS_KEY = 'orders';
+const LOCAL_PRODUCTS_KEY = 'farmer_products';
 
 const getLocalOrders = () => {
   try {
@@ -74,6 +75,37 @@ const getLocalOrders = () => {
 
 const saveLocalOrders = (orders) => {
   localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(orders));
+};
+
+const getLocalProducts = () => {
+  try {
+    const raw = localStorage.getItem(LOCAL_PRODUCTS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.warn('Failed to parse local products:', error);
+    return [];
+  }
+};
+
+const saveLocalProducts = (products) => {
+  localStorage.setItem(LOCAL_PRODUCTS_KEY, JSON.stringify(products));
+};
+
+const asNumber = (value) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+};
+
+const getNextProductId = (products = []) => {
+  const maxId = products.reduce((max, product) => {
+    const idNum = Number(product?.id);
+    if (Number.isFinite(idNum) && idNum > max) {
+      return idNum;
+    }
+    return max;
+  }, 0);
+  return maxId + 1;
 };
 
 export const mockProducts = [
@@ -138,16 +170,30 @@ export const productService = {
   },
 
   getAllProducts: async () => {
+    const localProducts = enrichProducts(getLocalProducts());
     try {
       const products = await productAPI.getAllProducts();
-      return Array.isArray(products) && products.length > 0 ? enrichProducts(products) : mockProducts;
+      const apiProducts = Array.isArray(products) ? enrichProducts(products) : [];
+      const localIds = new Set(localProducts.map((product) => Number(product.id)));
+
+      const merged = [
+        ...localProducts,
+        ...apiProducts.filter((product) => !localIds.has(Number(product.id))),
+      ];
+
+      return merged.length > 0 ? merged : mockProducts;
     } catch (error) {
       console.warn('Fetch products API failed, using mock:', error);
-      return mockProducts;
+      return localProducts.length > 0 ? [...localProducts, ...mockProducts] : mockProducts;
     }
   },
 
   getProductById: async (id) => {
+    const localProduct = getLocalProducts().find((product) => Number(product.id) === Number(id));
+    if (localProduct) {
+      return enrichProduct(localProduct);
+    }
+
     try {
       // Assuming backend has /products/{id}
       const response = await fetch(`http://localhost:8080/api/products/${id}`);
@@ -161,14 +207,27 @@ export const productService = {
   },
 
   getProductsByCategory: async (category) => {
+    const localProducts = enrichProducts(
+      getLocalProducts().filter((product) => normalizeName(product.category) === normalizeName(category))
+    );
+
     try {
       const products = await productAPI.getProductsByCategory(category);
-      return Array.isArray(products) && products.length > 0
-        ? enrichProducts(products)
+      const apiProducts = Array.isArray(products) ? enrichProducts(products) : [];
+      const localIds = new Set(localProducts.map((product) => Number(product.id)));
+      const merged = [
+        ...localProducts,
+        ...apiProducts.filter((product) => !localIds.has(Number(product.id))),
+      ];
+
+      return merged.length > 0
+        ? merged
         : enrichProducts(mockProducts.filter(p => p.category === category));
     } catch (error) {
       console.warn('Fetch products by category API failed, using mock:', error);
-      return enrichProducts(mockProducts.filter(p => p.category === category));
+      return localProducts.length > 0
+        ? localProducts
+        : enrichProducts(mockProducts.filter(p => p.category === category));
     }
   },
 
@@ -186,24 +245,49 @@ export const productService = {
   },
 
   addProduct: async (product) => {
+    const localProducts = getLocalProducts();
+    const mergedForId = [...localProducts, ...mockProducts];
+
+    const localPayload = {
+      id: getNextProductId(mergedForId),
+      name: product.name,
+      category: product.category,
+      description: product.description,
+      price: asNumber(product.price),
+      stock: asNumber(product.stock),
+      image: product.image || '/vite.svg',
+      createdAt: new Date().toISOString(),
+    };
+
     try {
       const res = await fetch('http://localhost:8080/api/products', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(product)
+        body: JSON.stringify({
+          name: localPayload.name,
+          category: localPayload.category,
+          description: localPayload.description,
+          price: localPayload.price,
+        })
       });
       if (!res.ok) throw new Error('Failed to add product');
-      return res.json();
+      const created = await res.json();
+
+      const productWithServerId = {
+        ...localPayload,
+        id: Number(created?.id) || localPayload.id,
+      };
+
+      const updatedProducts = [productWithServerId, ...localProducts];
+      saveLocalProducts(updatedProducts);
+      return enrichProduct(productWithServerId);
     } catch (error) {
       console.warn('Add product API failed, using mock:', error);
-      const newProduct = {
-        id: Math.max(...mockProducts.map(p => p.id), 0) + 1,
-        ...product,
-      };
-      mockProducts.push(newProduct);
-      return newProduct;
+      const updatedProducts = [localPayload, ...localProducts];
+      saveLocalProducts(updatedProducts);
+      return enrichProduct(localPayload);
     }
   },
 
@@ -230,6 +314,10 @@ export const productService = {
   },
 
   deleteProduct: async (id) => {
+    const localProducts = getLocalProducts();
+    const updatedLocalProducts = localProducts.filter((product) => Number(product.id) !== Number(id));
+    saveLocalProducts(updatedLocalProducts);
+
     try {
       const res = await fetch(`http://localhost:8080/api/products/${id}`, {
         method: 'DELETE'

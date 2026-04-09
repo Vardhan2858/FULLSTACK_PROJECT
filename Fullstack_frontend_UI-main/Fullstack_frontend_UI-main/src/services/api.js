@@ -130,6 +130,30 @@ export const cartAPI = {
     }
   },
 
+  // PUT /api/cart/{cartId}
+  // Updates quantity for a single cart item
+  updateCartItemQuantity: async (cartId, quantity) => {
+    try {
+      const response = await apiClient.put(`/cart/${cartId}`, { quantity });
+      return response.data;
+    } catch (error) {
+      console.log('Update cart item error response:', error.response);
+      throw error.response?.data || { message: 'Failed to update cart item' };
+    }
+  },
+
+  // DELETE /api/cart/{cartId}
+  // Removes a single cart row
+  deleteCartItem: async (cartId) => {
+    try {
+      const response = await apiClient.delete(`/cart/${cartId}`);
+      return response.data;
+    } catch (error) {
+      console.log('Delete cart item error response:', error.response);
+      throw error.response?.data || { message: 'Failed to remove cart item' };
+    }
+  },
+
   // DELETE /api/cart/user/{userId}
   // Removes all cart items for a user
   clearCartByUser: async (userId) => {

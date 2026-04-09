@@ -10,6 +10,7 @@ import com.example.dto.AuthResponse;
 import com.example.model.User;
 import com.example.repository.UserRepository;
 import com.example.security.JwtService;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -18,10 +19,12 @@ public class AuthController {
 
     private final UserRepository repo;
     private final JwtService jwtService;
+    private final PasswordEncoder passwordEncoder;
 
-    public AuthController(UserRepository repo, JwtService jwtService) {
+    public AuthController(UserRepository repo, JwtService jwtService, PasswordEncoder passwordEncoder) {
         this.repo = repo;
         this.jwtService = jwtService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @PostMapping("/login")
@@ -30,9 +33,16 @@ public class AuthController {
 
         if (existing != null) {
             boolean passwordMatches = existing.getPassword() != null
-                && existing.getPassword().equals(user.getPassword());
+                && (passwordEncoder.matches(user.getPassword(), existing.getPassword())
+                    || existing.getPassword().equals(user.getPassword()));
 
             if (passwordMatches) {
+                // Upgrade legacy plain-text passwords to BCrypt on successful login.
+                if (existing.getPassword().equals(user.getPassword())) {
+                    existing.setPassword(passwordEncoder.encode(user.getPassword()));
+                    repo.save(existing);
+                }
+
                 String token = jwtService.generateToken(existing.getEmail(), existing.getRole(), existing.getId());
                 return ResponseEntity.ok(new AuthResponse(
                     existing.getId(),
@@ -74,7 +84,7 @@ public class AuthController {
                 .body(Map.of("message", "Role must be BUYER or FARMER"));
         }
 
-        user.setPassword(user.getPassword());
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
 
         User saved = repo.save(user);
         String token = jwtService.generateToken(saved.getEmail(), saved.getRole(), saved.getId());
